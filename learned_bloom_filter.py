@@ -14,17 +14,26 @@ def conv(x):
     l = np.array(list(map(int, l)))
     return l
 
+def correct_check(x, y):
+    print("item")
+    print(x.item())
+    print(y.item())
+    if x.item() is True and y.item() == 1:
+        return 1
+    if x.item() is False and y.item() == 0:
+        return 1
+    return 0
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(1,2)
-        self.out = nn.Sigmoid()
+        self.fc1 = nn.Linear(32,1)
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.out(x)
+        x = torch.sigmoid(self.fc1(x))
         return x
-net = nn.Sequential(nn.Linear(32,2), nn.Sigmoid())
-#net = Net()
+
+#net = nn.Sequential(nn.Linear(32,2), nn.Sigmoid())
+net = Net()
 print(net)
 print(list(net.parameters()))
 total = 1000000
@@ -78,7 +87,7 @@ val_loader = DataLoader(dataset=val_dataset, batch_size=10)
 lr = 1e-1
 n_epochs = 1000
 
-loss_fn = nn.CrossEntropyLoss()
+loss_fn = nn.BCELoss(reduction='mean')
 optimizer = optim.SGD(net.parameters(), lr=lr)
 losses = []
 val_losses = []
@@ -86,7 +95,7 @@ val_losses = []
 for epoch in range(n_epochs):
     for x_batch, y_batch in train_loader:
         x_batch = x_batch.float().to('cpu')
-        y_batch = y_batch.to('cpu')
+        y_batch = y_batch.float().to('cpu')
 
         net.train()
 
@@ -109,15 +118,18 @@ with torch.no_grad():
         net.eval()
         
         yhat = net(x_val.float())
-        _, predict = torch.max(yhat.data, 1)
+        
+        predict = torch.gt(yhat.data, 0.5)
+        #_, predict = torch.max(yhat.data, 1)
         print("y_val:")
         print(y_val)
         print(yhat.data)
         print(predict)
         total += 10
         for i in range(10):
-            print(y_val[i] == predict[i])
-            correct += (y_val[i] == predict[i])
+            print("correct check")
+            print(correct_check(predict[i], y_val[i]))
+            correct += (correct_check(predict[i], y_val[i]))
 
     print("Hello")
     print(correct)
