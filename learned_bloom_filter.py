@@ -1,4 +1,5 @@
 import torch
+from bloom_filter import BloomFilter
 import numpy as np
 from random import sample
 from torch.autograd import Variable
@@ -137,3 +138,5 @@ with torch.no_grad():
 
 
 print(net.state_dict())
+# TODO: Count the number of missed inputs and add to our bloom filter.
+# Furthermore, calculate the total missed false positives after the complete bloom filter is created
