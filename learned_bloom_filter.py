@@ -39,7 +39,8 @@ def generate_data_restricted_range(total_range, lst, start, end):
     # does not appear in lst.
     result = []
     for i in total_range:
-        if i <= end and i >= start and i not in lst:
+        #if i <= end and i >= start and i not in lst:
+        if i <= end and i >= start: 
             result.append(i)
     return result
 
@@ -290,8 +291,9 @@ with torch.no_grad():
     print("{} false positive out of {} total. {}".format( false_positive, total, false_positive/total ))
 
 # Generate restricted data.
-
+restricted_dataset_0_1000000 = generate_data_restricted_range(not_x, bf_lst, 0 , 1000000)
 restricted_dataset_0_100000 = generate_data_restricted_range(not_x, bf_lst, 0, 100000)
+restricted_dataset_1000_2000 = generate_data_restricted_range(not_x, bf_lst, 500, 2500)
 
 lst = []
 index = 0
@@ -305,28 +307,56 @@ y = np.array([0] * len(lst))
 restricted_data1 = TensorDataset(torch.from_numpy(restricted_data1).long().to('cpu'), torch.from_numpy(y).long().to('cpu'))
 restricted_data1 = DataLoader(dataset=restricted_data1, batch_size = 10)
 
-# Find FPR for a restricted dataset.
-with torch.no_grad():
-    false_positive = 0
-    total = 0
-    for x_val, y_val in restricted_data1:
-        x_val = x_val.to('cpu')
-        y_val = y_val.to('cpu')
-        yhat = net(x_val.float())
-        for i in range(y_val.size(0)):
-            if y_val[i] == 0:
-                total += 1
-            if yhat[i] > tau:
-                if y_val[i] == 0:
-                    false_positive +=1
-            else:
-                k = x_val[i].tolist()
-                out = "".join([str(i) for i in k])
-                answer = bf.check(out)
-                if (answer is True and y_val[i] == 0):
-                    false_positive += 1
-    print("{} false positive out of {} total. {} for restricted dataset 1".format(false_positive, total, false_positive/total))
 
+lst = []
+index = 0
+restricted_data2 = np.random.choice(restricted_dataset_1000_2000, 400)
+while index < len(restricted_data2):
+    lst.append(conv(restricted_data2[index]))
+    index += 1
+
+restricted_data2 = np.array(lst)
+y = np.array([0] * len(lst))
+restricted_data2 = TensorDataset(torch.from_numpy(restricted_data2).long().to('cpu'), torch.from_numpy(y).long().to('cpu'))
+restricted_data2 = DataLoader(dataset=restricted_data2, batch_size = 10)
+
+lst = []
+index = 0
+restricted_data0 = np.random.choice(restricted_dataset_0_1000000, 400)
+while index < len(restricted_data0):
+    lst.append(conv(restricted_data0[index]))
+    index += 1
+
+restricted_data0 = np.array(lst)
+y = np.array([0] * len(lst))
+restricted_data0 = TensorDataset(torch.from_numpy(restricted_data0).long().to('cpu'), torch.from_numpy(y).long().to('cpu'))
+restricted_data0 = DataLoader(dataset=restricted_data0, batch_size = 10)
+
+# Find FPR for a restricted dataset.
+cnt = 0
+for m in [restricted_data0, restricted_data1, restricted_data2]:
+    with torch.no_grad():
+        false_positive = 0
+        total = 0
+        for x_val, y_val in m:
+            x_val = x_val.to('cpu')
+            y_val = y_val.to('cpu')
+            yhat = net(x_val.float())
+            for i in range(y_val.size(0)):
+                if y_val[i] == 0:
+                    total += 1
+                if yhat[i] > tau:
+                    if y_val[i] == 0:
+                        false_positive +=1
+                else:
+                    k = x_val[i].tolist()
+                    out = "".join([str(i) for i in k])
+                    answer = bf.check(out)
+                    if (answer is True and y_val[i] == 0):
+                        false_positive += 1
+        print("{} false positive out of {} total. {} for restricted dataset {}".format(false_positive, total, false_positive/total, cnt))
+        cnt += 1
+    
 # TODO: Add in the sandwiched bloom filter
 
 print("--------------- Sandwiched Learned Bloom Filter")
@@ -345,6 +375,7 @@ for x_val, _ in positive_keys_loader:
         front_filter_lst.append(out)
 
 front_filter = BloomFilter(len(front_filter_lst), 0.43)
+# front_filter = BloomFilter(len(front_filter_lst), 1)
 for i in front_filter_lst:
     front_filter.add(str(i))
 
@@ -379,27 +410,30 @@ with torch.no_grad():
                         false_positive += 1
     print("{} false positive out of {} total. {}".format( false_positive, total, false_positive/total ))
 
-with torch.no_grad():
-    false_positive = 0
-    total = 0
-    for x_val, y_val in restricted_data1:
-        x_val = x_val.to('cpu')
-        y_val = y_val.to('cpu')
-        yhat = net(x_val.float())
-        for i in range(y_val.size(0)):
-            if y_val[i] == 0:
-                total += 1
-
-            k = x_val[i].tolist()
-            out = "".join([str(i) for i in k])
-            if front_filter.check(out):
-                if yhat[i] > tau:
-                    if y_val[i] == 0:
-                        false_positive += 1
-                else:
-                    k = x_val[i].tolist()
-                    out = "".join([str(i) for i in k])
-                    answer = backup_filter.check(out)
-                    if (answer is True and y_val[i] == 0):
-                        false_positive += 1
-    print("{} false positive out of {} total. {} for restricted dataset 1".format(false_positive, total, false_positive/total))
+cnt = 0
+for m in [restricted_data0, restricted_data1, restricted_data2]:
+    with torch.no_grad():
+        false_positive = 0
+        total = 0
+        for x_val, y_val in m:
+            x_val = x_val.to('cpu')
+            y_val = y_val.to('cpu')
+            yhat = net(x_val.float())
+            for i in range(y_val.size(0)):
+                if y_val[i] == 0:
+                    total += 1
+    
+                k = x_val[i].tolist()
+                out = "".join([str(i) for i in k])
+                if front_filter.check(out):
+                    if yhat[i] > tau:
+                        if y_val[i] == 0:
+                            false_positive += 1
+                    else:
+                        k = x_val[i].tolist()
+                        out = "".join([str(i) for i in k])
+                        answer = backup_filter.check(out)
+                        if (answer is True and y_val[i] == 0):
+                            false_positive += 1
+        print("{} false positive out of {} total. {} for restricted dataset {}".format(false_positive, total, false_positive/total, cnt))
+        cnt += 1
